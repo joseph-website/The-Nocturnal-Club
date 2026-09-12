@@ -5,6 +5,7 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
+    base: './', // 記得字尾要加逗號
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
