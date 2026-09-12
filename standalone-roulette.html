@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>虛擬賭場大廳 (Casino Hub) - 歐式輪盤 & 21點</title>
+  <style>
+    :root {
+      --bg-dark: #07090e;
+      --panel-bg: #0e111a;
+      --gold: #f59e0b;
+      --gold-glow: rgba(245, 158, 11, 0.4);
+      --emerald-felt: #06331e;
+      --red-slot: #dc2626;
+      --black-slot: #18181b;
+      --green-slot: #059669;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", sans-serif; user-select: none; }
+    body { background-color: var(--bg-dark); color: #f3f4f6; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 12px; }
+    
+    /* Header & Navigation */
+    header { width: 100%; max-width: 1100px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid #27272a; margin-bottom: 16px; }
+    .title-box { display: flex; align-items: center; gap: 10px; }
+    .title-box h1 { font-size: 19px; font-weight: 900; color: #fbbf24; text-shadow: 0 0 12px var(--gold-glow); }
+    .badge { font-size: 11px; padding: 3px 8px; border-radius: 99px; background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #059669; }
+    
+    /* Hub Navigation Tabs */
+    .tab-bar { display: flex; gap: 8px; background: #121520; padding: 4px; border-radius: 12px; border: 1px solid #27272a; }
+    .tab-btn { padding: 8px 16px; border-radius: 8px; border: none; background: transparent; color: #9ca3af; font-weight: 700; font-size: 13px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px; }
+    .tab-btn.active { background: linear-gradient(135deg, #f59e0b, #d97706); color: #090b10; box-shadow: 0 0 12px var(--gold-glow); }
+    
+    /* Shared Balance Box */
+    .balance-badge { display: flex; align-items: center; gap: 8px; background: #181b26; border: 1px solid rgba(245, 158, 11, 0.4); padding: 6px 14px; border-radius: 12px; font-family: monospace; font-size: 15px; font-weight: 900; color: #fbbf24; }
+
+    /* Containers */
+    .game-view { width: 100%; max-width: 1100px; display: none; }
+    .game-view.active { display: block; }
+    .roulette-container { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    @media (min-width: 900px) { .roulette-container { grid-template-columns: 360px 1fr; } }
+    
+    .card-panel { background: var(--panel-bg); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 16px; padding: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    
+    /* Roulette Elements */
+    .wheel-container { position: relative; width: 290px; height: 290px; margin: 0 auto; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, #1e2130, #0a0c10); border: 3px solid #78350f; box-shadow: 0 0 30px var(--gold-glow); }
+    .pointer { position: absolute; top: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 14px solid #fbbf24; z-index: 20; filter: drop-shadow(0 0 6px #fbbf24); }
+    canvas#rouletteWheel { width: 100%; height: 100%; border-radius: 50%; transition: transform 3s cubic-bezier(0.1, 0.9, 0.2, 1); }
+    .stats-ribbon { display: flex; gap: 6px; overflow-x: auto; padding: 8px 0; }
+    .hist-ball { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; flex-shrink: 0; }
+    .red { background: var(--red-slot); color: #fff; }
+    .black { background: var(--black-slot); color: #fff; border: 1px solid #3f3f46; }
+    .green { background: var(--green-slot); color: #fff; }
+    
+    /* Table & Grid */
+    .table-grid { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+    .grid-row { display: flex; gap: 4px; }
+    .cell { position: relative; flex: 1; min-height: 40px; border-radius: 6px; border: 1px solid #3f3f46; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; cursor: pointer; transition: all 0.15s; }
+    .cell:hover { filter: brightness(1.25); transform: translateY(-1px); }
+    .cell:active { transform: scale(0.96); }
+    .chip-badge { position: absolute; top: -6px; right: -6px; background: #2563eb; color: #fff; font-size: 10px; padding: 2px 5px; border-radius: 99px; font-family: monospace; border: 1px solid #93c5fd; pointer-events: none; z-index: 5; }
+
+    /* Chips */
+    .chip-bar { display: flex; gap: 8px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
+    .chip-btn { width: 44px; height: 44px; border-radius: 50%; border: 2px dashed #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px; cursor: pointer; transition: all 0.2s; }
+    .chip-btn.active { transform: scale(1.15) translateY(-2px); box-shadow: 0 0 15px #fbbf24; border-style: solid; border-color: #fbbf24; }
+    .c-50 { background: #059669; }
+    .c-100 { background: #2563eb; }
+    .c-500 { background: #9333ea; }
+    .c-1000 { background: #d97706; }
+    .c-5000 { background: #e11d48; }
+
+    /* Buttons */
+    .btn { padding: 8px 14px; border-radius: 8px; border: 1px solid #3f3f46; background: #18181b; color: #e5e7eb; font-weight: 600; font-size: 12px; cursor: pointer; transition: all 0.2s; }
+    .btn:hover { background: #27272a; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-gold { background: linear-gradient(135deg, #f59e0b, #d97706); color: #000; font-size: 13px; font-weight: 900; border: none; padding: 9px 20px; box-shadow: 0 0 15px var(--gold-glow); }
+    .btn-gold:hover { filter: brightness(1.1); transform: scale(1.02); }
+    .btn-green { background: linear-gradient(135deg, #10b981, #059669); color: #fff; font-weight: 800; border: none; }
+    .btn-red { background: linear-gradient(135deg, #ef4444, #b91c1c); color: #fff; font-weight: 800; border: none; }
+    .btn-purple { background: linear-gradient(135deg, #a855f7, #7e22ce); color: #fff; font-weight: 800; border: none; }
+
+    /* Blackjack Felt Table */
+    .bj-felt { background: radial-gradient(circle at center, #094228, #052917, #02170c); border: 4px solid #78350f; border-radius: 24px; padding: 20px; min-height: 440px; display: flex; flex-direction: column; justify-content: space-between; position: relative; box-shadow: 0 20px 40px rgba(0,0,0,0.8); }
+    .bj-arch { position: absolute; inset: 16px; border: 2px dashed rgba(245, 158, 11, 0.25); border-radius: 60px; pointer-events: none; }
+    .card-row { display: flex; justify-content: center; gap: -30px; min-height: 110px; margin: 6px 0; }
+    .card { width: 75px; height: 108px; border-radius: 8px; background: #fff; color: #111; display: flex; flex-direction: column; justify-content: space-between; padding: 4px 6px; font-weight: bold; border: 1px solid #d1d5db; box-shadow: 0 8px 16px rgba(0,0,0,0.5); position: relative; margin: 0 -12px; transition: transform 0.2s; }
+    .card:hover { transform: translateY(-4px); z-index: 10; }
+    .card.hidden { background: linear-gradient(135deg, #78350f, #18181b); border: 2px solid #fbbf24; }
+    .card.hidden::after { content: '♠'; font-size: 28px; color: #fbbf24; display: flex; align-items: center; justify-content: center; height: 100%; opacity: 0.8; }
+    .c-red { color: #dc2626; }
+    .c-black { color: #18181b; }
+    .score-badge { font-size: 11px; padding: 2px 8px; border-radius: 99px; background: rgba(0,0,0,0.7); border: 1px solid #fbbf24; color: #fbbf24; font-family: monospace; font-weight: bold; }
+    .bet-spot { width: 95px; height: 95px; border-radius: 50%; border: 3px dashed #fbbf24; margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; background: rgba(0,0,0,0.3); }
+    .bet-spot:hover { background: rgba(245, 158, 11, 0.15); transform: scale(1.05); }
+
+    /* Modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 100; backdrop-blur: 4px; }
+    .modal { background: #131722; border: 2px solid #fbbf24; border-radius: 16px; padding: 24px; text-align: center; max-width: 380px; width: 90%; box-shadow: 0 0 40px var(--gold-glow); }
+  </style>
+</head>
+<body>
+  <!-- Global Hub Header -->
+  <header>
+    <div class="title-box">
+      <h1>虛擬賭場大廳 <span style="font-size:12px; color:#fbbf24; font-weight:normal;">(CASINO HUB)</span></h1>
+      <span class="badge">純前端運算 &bull; 共享籌碼</span>
+    </div>
+
+    <!-- Tab switcher -->
+    <div class="tab-bar">
+      <button class="tab-btn active" id="tab-roulette-btn" onclick="switchGame('roulette')">🎰 歐式輪盤</button>
+      <button class="tab-btn" id="tab-blackjack-btn" onclick="switchGame('blackjack')">♠️ 21 點 (Blackjack)</button>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <div class="balance-badge">
+        <span style="font-size:11px; color:#9ca3af; font-weight:normal;">全局籌碼:</span>
+        <span id="globalBalanceText">$10,000</span>
+      </div>
+      <button class="btn" onclick="resetChips()">重置 $10,000</button>
+    </div>
+  </header>
+
+  <!-- ==================== GAME 1: 歐式輪盤 (European Roulette) ==================== -->
+  <div class="game-view active" id="view-roulette">
+    <div class="roulette-container">
+      <!-- Wheel Area -->
+      <div class="card-panel">
+        <div class="wheel-container">
+          <div class="pointer"></div>
+          <canvas id="rouletteWheel" width="290" height="290"></canvas>
+        </div>
+        <div id="rouletteStatus" style="text-align:center; margin-top: 12px; font-size: 13px; color: #9ca3af;">
+          請選擇籌碼並在下注桌下注
+        </div>
+        <div style="margin-top: 14px;">
+          <div style="font-size: 11px; color: #9ca3af; margin-bottom: 4px;">歷次開獎號碼 (歷史路單):</div>
+          <div class="stats-ribbon" id="historyRibbon">
+            <span style="font-size: 11px; color: #6b7280;">尚未開獎</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Table Area -->
+      <div class="card-panel">
+        <div class="table-grid">
+          <div class="grid-row">
+            <div class="cell green" style="flex: 0 0 44px; height: 130px; font-size: 18px;" onclick="placeRouletteBet('straight', 0, '直注 0')">
+              0<div id="rbadge-straight-0"></div>
+            </div>
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+              <div class="grid-row" id="rRow1"></div>
+              <div class="grid-row" id="rRow2"></div>
+              <div class="grid-row" id="rRow3"></div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px; width: 44px;">
+              <div class="cell" style="background:#1e2130;" onclick="placeRouletteBet('col_3', null, '第 3 行')">2:1<div id="rbadge-col_3"></div></div>
+              <div class="cell" style="background:#1e2130;" onclick="placeRouletteBet('col_2', null, '第 2 行')">2:1<div id="rbadge-col_2"></div></div>
+              <div class="cell" style="background:#1e2130;" onclick="placeRouletteBet('col_1', null, '第 1 行')">2:1<div id="rbadge-col_1"></div></div>
+            </div>
+          </div>
+
+          <div class="grid-row" style="margin-left: 48px; margin-right: 48px;">
+            <div class="cell" style="background:#1c1917;" onclick="placeRouletteBet('dozen_1', null, '1st 12')">1st 12 (1-12)<div id="rbadge-dozen_1"></div></div>
+            <div class="cell" style="background:#1c1917;" onclick="placeRouletteBet('dozen_2', null, '2nd 12')">2nd 12 (13-24)<div id="rbadge-dozen_2"></div></div>
+            <div class="cell" style="background:#1c1917;" onclick="placeRouletteBet('dozen_3', null, '3rd 12')">3rd 12 (25-36)<div id="rbadge-dozen_3"></div></div>
+          </div>
+
+          <div class="grid-row" style="margin-left: 48px; margin-right: 48px;">
+            <div class="cell" style="background:#1c1917;" onclick="placeRouletteBet('low', null, '小 (1-18)')">小 1-18<div id="rbadge-low"></div></div>
+            <div class="cell" style="background:#1c1917;" onclick="placeRouletteBet('even', null, '雙數 EVEN')">雙 EVEN<div id="rbadge-even"></div></div>
+            <div class="cell red" onclick="placeRouletteBet('red', null, '紅色 RED')">紅色 RED<div id="rbadge-red"></div></div>
+            <div class="cell black" onclick="placeRouletteBet('black', null, '黑色 BLACK')">黑色 BLACK<div id="rbadge-black"></div></div>
+            <div class="cell" style="background:#1c1917;" onclick="placeRouletteBet('odd', null, '單數 ODD')">單 ODD<div id="rbadge-odd"></div></div>
+            <div class="cell" style="background:#1c1917;" onclick="placeRouletteBet('high', null, '大 (19-36)')">大 19-36<div id="rbadge-high"></div></div>
+          </div>
+        </div>
+
+        <!-- Chips -->
+        <div class="chip-bar">
+          <div class="chip-btn c-50" onclick="selectChip(50, this)">$50</div>
+          <div class="chip-btn c-100 active" onclick="selectChip(100, this)">$100</div>
+          <div class="chip-btn c-500" onclick="selectChip(500, this)">$500</div>
+          <div class="chip-btn c-1000" onclick="selectChip(1000, this)">$1K</div>
+          <div class="chip-btn c-5000" onclick="selectChip(5000, this)">$5K</div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding-top: 10px; border-top: 1px solid #27272a;">
+          <div style="font-size: 13px;">本輪輪盤下注: <span id="rouletteTotalBetText" style="color:#34d399; font-weight:bold;">$0</span></div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn" onclick="clearRouletteBets()">清除</button>
+            <button class="btn" onclick="rebetRoulette()">重複下注</button>
+            <button class="btn btn-gold" id="rSpinBtn" onclick="spinRoulette()">旋轉開獎 (SPIN)</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== GAME 2: 21 點 (Blackjack) ==================== -->
+  <div class="game-view" id="view-blackjack">
+    <div style="display: flex; flex-direction: column; gap: 14px;">
+      <!-- Shoe bar -->
+      <div style="display:flex; justify-content:space-between; align-items:center; background:#10131d; padding:10px 16px; border-radius:12px; border:1px solid #27272a;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:12px; color:#fbbf24; font-weight:bold;">6 副牌標準牌靴</span>
+          <span id="shoeCountBadge" style="font-size:11px; background:rgba(16,185,129,0.2); color:#34d399; border:1px solid #059669; padding:2px 8px; border-radius:99px; font-family:monospace;">
+            牌靴剩餘張數：312 / 312
+          </span>
+        </div>
+        <button class="btn" onclick="manualShuffleShoe()">重新洗牌</button>
+      </div>
+
+      <!-- Felt Table -->
+      <div class="bj-felt">
+        <div class="bj-arch"></div>
+
+        <!-- Dealer Area -->
+        <div style="text-align: center; position: relative; z-index: 2;">
+          <div style="display: inline-flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+            <span style="font-size: 12px; font-weight: bold; color: #cbd5e1;">莊家 (DEALER)</span>
+            <span class="score-badge" id="dealerScoreBadge">0 點</span>
+          </div>
+          <div class="card-row" id="dealerCardsRow">
+            <div style="color: rgba(255,255,255,0.3); font-size: 12px; line-height: 100px;">等待發牌</div>
+          </div>
+        </div>
+
+        <!-- Center Notification -->
+        <div id="bjCenterMsg" style="text-align: center; position: relative; z-index: 2; font-size: 13px; color: #fbbf24; font-weight: bold;">
+          請選擇籌碼面額，並點擊下方「下注圈」放置注金
+        </div>
+
+        <!-- Player Area -->
+        <div style="text-align: center; position: relative; z-index: 2;">
+          <div class="card-row" id="playerCardsRow" style="display: none;"></div>
+          
+          <div id="bjBetSpot" class="bet-spot" onclick="placeBjBet()">
+            <span style="font-size: 10px; color: #fbbf24; font-weight: bold;">PLACE BET</span>
+            <span id="bjBetAmountText" style="font-size: 16px; font-weight: 900; font-family: monospace; color: #fff; margin-top: 2px;">$0</span>
+            <span style="font-size: 9px; color: #9ca3af;">點擊下注</span>
+          </div>
+
+          <div style="display: inline-flex; align-items: center; gap: 6px; margin-top: 8px;">
+            <span style="font-size: 12px; font-weight: bold; color: #cbd5e1;">玩家 (YOU)</span>
+            <span class="score-badge" id="playerScoreBadge" style="display:none;">0 點</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Blackjack Controls -->
+      <div class="card-panel">
+        <!-- Chip selector -->
+        <div class="chip-bar" style="margin-top:0; margin-bottom:12px;">
+          <div class="chip-btn c-50" onclick="selectChip(50, this)">$50</div>
+          <div class="chip-btn c-100 active" onclick="selectChip(100, this)">$100</div>
+          <div class="chip-btn c-500" onclick="selectChip(500, this)">$500</div>
+          <div class="chip-btn c-1000" onclick="selectChip(1000, this)">$1K</div>
+          <div class="chip-btn c-5000" onclick="selectChip(5000, this)">$5K</div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <!-- Betting stage controls -->
+          <div id="bjBetControls" style="display: flex; gap: 8px; width: 100%; justify-content: space-between;">
+            <div style="display:flex; gap:6px;">
+              <button class="btn" onclick="clearBjBet()">清除下注</button>
+              <button class="btn" onclick="rebetBj()">重複下注</button>
+            </div>
+            <button class="btn btn-gold" id="bjDealBtn" onclick="dealBlackjack()">開始發牌 (DEAL)</button>
+          </div>
+
+          <!-- Playing stage controls -->
+          <div id="bjPlayControls" style="display: none; gap: 8px; width: 100%; justify-content: space-between;">
+            <button class="btn btn-purple" id="bjDoubleBtn" onclick="bjDoubleDown()">雙倍下注 (2X)</button>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-green" onclick="bjHit()">要牌 (HIT)</button>
+              <button class="btn btn-red" onclick="bjStand()">停牌 (STAND)</button>
+            </div>
+          </div>
+
+          <!-- Settled stage controls -->
+          <div id="bjSettledControls" style="display: none; gap: 8px; width: 100%; justify-content: space-between;">
+            <div id="bjRoundSummary" style="font-size: 13px; font-weight: bold; color: #fbbf24; align-self: center;"></div>
+            <div style="display: flex; gap: 6px;">
+              <button class="btn" onclick="bjRebetAndDeal()">重複並發牌</button>
+              <button class="btn btn-gold" onclick="bjPlayAgain()">再玩一局</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shared Modal -->
+  <div class="modal-overlay" id="casinoModal">
+    <div class="modal">
+      <h2 id="modalTitle" style="color:#fbbf24; margin-bottom: 8px;">開獎結果</h2>
+      <p id="modalDesc" style="font-size: 13px; color:#cbd5e1; margin-bottom: 16px;"></p>
+      <button class="btn btn-gold" style="width: 100%;" onclick="closeCasinoModal()">確認繼續</button>
+    </div>
+  </div>
+
+  <script>
+    // ==================== SHARED AUDIO & BALANCE ====================
+    let balance = parseInt(localStorage.getItem('casino_shared_balance')) || 10000;
+    let selectedChip = 100;
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    function playBeep(freq, type='sine', dur=0.05) {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + dur);
+    }
+
+    function updateGlobalBalance() {
+      localStorage.setItem('casino_shared_balance', balance.toString());
+      localStorage.setItem('roulette_balance', balance.toString());
+      document.getElementById('globalBalanceText').innerText = '$' + balance.toLocaleString();
+    }
+
+    function selectChip(val, el) {
+      selectedChip = val;
+      document.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.c-' + (val >= 1000 ? val : val)).forEach(b => b.classList.add('active'));
+      playBeep(800);
+    }
+
+    function resetChips() {
+      balance = 10000;
+      clearRouletteBets();
+      clearBjBet();
+      updateGlobalBalance();
+      alert('已重置為 $10,000 共享虛擬籌碼！');
+    }
+
+    function switchGame(game) {
+      playBeep(600);
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.game-view').forEach(v => v.classList.remove('active'));
+
+      if (game === 'roulette') {
+        document.getElementById('tab-roulette-btn').classList.add('active');
+        document.getElementById('view-roulette').classList.add('active');
+      } else {
+        document.getElementById('tab-blackjack-btn').classList.add('active');
+        document.getElementById('view-blackjack').classList.add('active');
+      }
+    }
+
+    function showCasinoModal(title, desc, isWin) {
+      const modal = document.getElementById('casinoModal');
+      const t = document.getElementById('modalTitle');
+      const d = document.getElementById('modalDesc');
+      t.innerText = title;
+      t.style.color = isWin ? '#34d399' : '#f87171';
+      d.innerHTML = desc;
+      modal.style.display = 'flex';
+    }
+
+    function closeCasinoModal() {
+      document.getElementById('casinoModal').style.display = 'none';
+    }
+
+    // ==================== 1. EUROPEAN ROULETTE LOGIC ====================
+    const WHEEL_NUMBERS = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
+    const REDS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
+    let rouletteBets = {};
+    let lastRouletteBets = {};
+    let isRouletteSpinning = false;
+    let rouletteAngle = 0;
+    let rouletteHistory = [];
+
+    function initRoulette() {
+      const r1 = [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36];
+      const r2 = [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35];
+      const r3 = [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34];
+
+      function buildRow(row, containerId) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = '';
+        row.forEach(num => {
+          const isRed = REDS.includes(num);
+          const div = document.createElement('div');
+          div.className = \`cell \${isRed ? 'red' : 'black'}\`;
+          div.id = \`rcell-straight-\${num}\`;
+          div.innerHTML = \`\${num}<div id="rbadge-straight-\${num}"></div>\`;
+          div.onclick = () => placeRouletteBet('straight', num, '直注 ' + num);
+          container.appendChild(div);
+        });
+      }
+      buildRow(r1, 'rRow1');
+      buildRow(r2, 'rRow2');
+      buildRow(r3, 'rRow3');
+      drawRouletteWheel();
+      updateRouletteUI();
+    }
+
+    function drawRouletteWheel() {
+      const canvas = document.getElementById('rouletteWheel');
+      const ctx = canvas.getContext('2d');
+      const size = canvas.width;
+      const center = size / 2;
+      const radius = center - 8;
+      const slice = (Math.PI * 2) / 37;
+
+      ctx.clearRect(0, 0, size, size);
+
+      WHEEL_NUMBERS.forEach((num, i) => {
+        const angle = i * slice - Math.PI / 2;
+        ctx.beginPath();
+        ctx.moveTo(center, center);
+        ctx.arc(center, center, radius, angle, angle + slice);
+        ctx.fillStyle = num === 0 ? '#059669' : REDS.includes(num) ? '#dc2626' : '#18181b';
+        ctx.fill();
+        ctx.strokeStyle = '#78350f';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.save();
+        ctx.translate(center, center);
+        ctx.rotate(angle + slice / 2);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 9px monospace';
+        ctx.fillText(num, radius - 8, 3);
+        ctx.restore();
+      });
+
+      ctx.beginPath();
+      ctx.arc(center, center, 28, 0, Math.PI * 2);
+      ctx.fillStyle = '#b45309';
+      ctx.fill();
+      ctx.strokeStyle = '#fef08a';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    function placeRouletteBet(type, val, label) {
+      if (isRouletteSpinning) return;
+      const id = type === 'straight' ? \`straight-\${val}\` : type;
+      if (balance < selectedChip) {
+        alert('籌碼餘額不足！');
+        return;
+      }
+      balance -= selectedChip;
+      if (!rouletteBets[id]) {
+        rouletteBets[id] = { type, value: val, amount: selectedChip, label };
+      } else {
+        rouletteBets[id].amount += selectedChip;
+      }
+      playBeep(1200);
+      updateGlobalBalance();
+      updateRouletteUI();
+    }
+
+    function clearRouletteBets() {
+      if (isRouletteSpinning) return;
+      const total = Object.values(rouletteBets).reduce((a, b) => a + b.amount, 0);
+      balance += total;
+      rouletteBets = {};
+      playBeep(400);
+      updateGlobalBalance();
+      updateRouletteUI();
+    }
+
+    function rebetRoulette() {
+      if (isRouletteSpinning) return;
+      const cost = Object.values(lastRouletteBets).reduce((a, b) => a + b.amount, 0);
+      if (cost === 0) return;
+      if (balance < cost) { alert('籌碼不足！'); return; }
+      clearRouletteBets();
+      balance -= cost;
+      rouletteBets = JSON.parse(JSON.stringify(lastRouletteBets));
+      playBeep(900);
+      updateGlobalBalance();
+      updateRouletteUI();
+    }
+
+    function spinRoulette() {
+      const totalBet = Object.values(rouletteBets).reduce((a, b) => a + b.amount, 0);
+      if (totalBet === 0) { alert('請先放置籌碼！'); return; }
+      if (isRouletteSpinning) return;
+
+      isRouletteSpinning = true;
+      lastRouletteBets = JSON.parse(JSON.stringify(rouletteBets));
+      document.getElementById('rSpinBtn').disabled = true;
+      document.getElementById('rouletteStatus').innerText = '輪盤旋轉中...';
+
+      const winner = Math.floor(Math.random() * 37);
+      const targetIndex = WHEEL_NUMBERS.indexOf(winner);
+      const sliceDeg = 360 / 37;
+      const targetDeg = 360 - (targetIndex * sliceDeg);
+
+      rouletteAngle += 360 * 6 + targetDeg;
+      const canvas = document.getElementById('rouletteWheel');
+      canvas.style.transform = \`rotate(\${rouletteAngle}deg)\`;
+
+      let ticks = 0;
+      const ticker = setInterval(() => {
+        ticks++;
+        playBeep(1300 - ticks * 25, 'triangle', 0.02);
+        if (ticks > 25) clearInterval(ticker);
+      }, 100);
+
+      setTimeout(() => {
+        isRouletteSpinning = false;
+        document.getElementById('rSpinBtn').disabled = false;
+        finishRouletteSpin(winner, totalBet);
+      }, 3000);
+    }
+
+    function finishRouletteSpin(winner, totalBet) {
+      let totalWon = 0;
+      const details = [];
+
+      Object.values(rouletteBets).forEach(b => {
+        let won = false;
+        let mult = 0;
+        if (b.type === 'straight' && b.value === winner) { won = true; mult = 36; }
+        else if (winner !== 0) {
+          if (b.type === 'red' && REDS.includes(winner)) { won = true; mult = 2; }
+          if (b.type === 'black' && !REDS.includes(winner)) { won = true; mult = 2; }
+          if (b.type === 'even' && winner % 2 === 0) { won = true; mult = 2; }
+          if (b.type === 'odd' && winner % 2 === 1) { won = true; mult = 2; }
+          if (b.type === 'low' && winner >= 1 && winner <= 18) { won = true; mult = 2; }
+          if (b.type === 'high' && winner >= 19 && winner <= 36) { won = true; mult = 2; }
+          if (b.type === 'dozen_1' && winner <= 12) { won = true; mult = 3; }
+          if (b.type === 'dozen_2' && winner >= 13 && winner <= 24) { won = true; mult = 3; }
+          if (b.type === 'dozen_3' && winner >= 25 && winner <= 36) { won = true; mult = 3; }
+          if (b.type === 'col_1' && winner % 3 === 1) { won = true; mult = 3; }
+          if (b.type === 'col_2' && winner % 3 === 2) { won = true; mult = 3; }
+          if (b.type === 'col_3' && winner % 3 === 0) { won = true; mult = 3; }
+        }
+        if (won) {
+          const p = b.amount * mult;
+          totalWon += p;
+          details.push(\`\${b.label}: +$\${p.toLocaleString()}\`);
+        }
+      });
+
+      balance += totalWon;
+      rouletteHistory.unshift({ number: winner, color: winner === 0 ? 'green' : REDS.includes(winner) ? 'red' : 'black' });
+      rouletteBets = {};
+      updateGlobalBalance();
+      updateRouletteUI();
+
+      if (totalWon > 0) {
+        showCasinoModal('🎉 輪盤獲利！', \`開出號碼 <b>\${winner}</b><br>贏得彩金: <b style="color:#34d399;">+$\${totalWon.toLocaleString()}</b><br><small>\${details.join('<br>')}</small>\`, true);
+      } else {
+        showCasinoModal('本輪未中獎', \`開出號碼 <b>\${winner}</b><br>損失注金: -$\${totalBet.toLocaleString()}\`, false);
+      }
+    }
+
+    function updateRouletteUI() {
+      const total = Object.values(rouletteBets).reduce((a, b) => a + b.amount, 0);
+      document.getElementById('rouletteTotalBetText').innerText = '$' + total.toLocaleString();
+      document.querySelectorAll('[id^="rbadge-"]').forEach(b => b.innerHTML = '');
+      Object.entries(rouletteBets).forEach(([id, bet]) => {
+        const badge = document.getElementById('rbadge-' + id);
+        if (badge && bet.amount > 0) {
+          badge.innerHTML = \`<span class="chip-badge">$\${bet.amount >= 1000 ? (bet.amount/1000)+'k' : bet.amount}</span>\`;
+        }
+      });
+      const ribbon = document.getElementById('historyRibbon');
+      if (rouletteHistory.length > 0) {
+        ribbon.innerHTML = '';
+        rouletteHistory.slice(0, 14).forEach(h => {
+          const div = document.createElement('div');
+          div.className = \`hist-ball \${h.color}\`;
+          div.innerText = h.number;
+          ribbon.appendChild(div);
+        });
+      }
+    }
+
+    // ==================== 2. BLACKJACK 6-DECK SHOE LOGIC ====================
+    let bjShoe = [];
+    let bjBet = 0;
+    let bjLastBet = 100;
+    let playerHand = [];
+    let dealerHand = [];
+    let bjPhase = 'betting';
+    let isBjDouble = false;
+
+    const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
+    const SUIT_CHARS = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' };
+    const RANKS = [
+      { r: 'A', v: 11 }, { r: '2', v: 2 }, { r: '3', v: 3 }, { r: '4', v: 4 },
+      { r: '5', v: 5 }, { r: '6', v: 6 }, { r: '7', v: 7 }, { r: '8', v: 8 },
+      { r: '9', v: 9 }, { r: '10', v: 10 }, { r: 'J', v: 10 }, { r: 'Q', v: 10 }, { r: 'K', v: 10 }
+    ];
+
+    function create6DeckShoe() {
+      const shoe = [];
+      for (let d = 1; d <= 6; d++) {
+        for (const s of SUITS) {
+          for (const rk of RANKS) {
+            shoe.push({ suit: s, rank: rk.r, value: rk.v, isHidden: false });
+          }
+        }
+      }
+      for (let i = shoe.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shoe[i], shoe[j]] = [shoe[j], shoe[i]];
+      }
+      return shoe;
+    }
+
+    function initBlackjack() {
+      bjShoe = create6DeckShoe();
+      updateShoeUI();
+    }
+
+    function updateShoeUI() {
+      const count = bjShoe.length;
+      const el = document.getElementById('shoeCountBadge');
+      el.innerText = \`牌靴剩餘張數：\${count} / 312\`;
+      if (count < 75) {
+        el.style.background = 'rgba(239, 68, 68, 0.2)';
+        el.style.borderColor = '#ef4444';
+        el.style.color = '#fca5a5';
+      } else {
+        el.style.background = 'rgba(16, 185, 129, 0.2)';
+        el.style.borderColor = '#059669';
+        el.style.color = '#34d399';
+      }
+    }
+
+    function manualShuffleShoe() {
+      if (bjPhase !== 'betting') return;
+      playBeep(450, 'triangle', 0.2);
+      bjShoe = create6DeckShoe();
+      updateShoeUI();
+      alert('已重新洗好 6 副牌標準牌靴 (共 312 張牌)！');
+    }
+
+    function calcHand(hand) {
+      let total = 0;
+      let aces = 0;
+      hand.forEach(c => {
+        if (!c.isHidden) {
+          if (c.rank === 'A') { aces++; total += 11; }
+          else { total += c.value; }
+        }
+      });
+      while (total > 21 && aces > 0) {
+        total -= 10;
+        aces--;
+      }
+      return { total, isBust: total > 21, isBJ: hand.length === 2 && total === 21 };
+    }
+
+    function renderCard(card) {
+      if (card.isHidden) return '<div class="card hidden"></div>';
+      const isRed = card.suit === 'hearts' || card.suit === 'diamonds';
+      const sym = SUIT_CHARS[card.suit];
+      return \`
+        <div class="card">
+          <div class="\${isRed ? 'c-red' : 'c-black'}">\${card.rank}\${sym}</div>
+          <div style="font-size: 26px; text-align: center;" class="\${isRed ? 'c-red' : 'c-black'}">\${sym}</div>
+          <div style="transform: rotate(180deg);" class="\${isRed ? 'c-red' : 'c-black'}">\${card.rank}\${sym}</div>
+        </div>
+      \`;
+    }
+
+    function updateBjUI() {
+      const dScore = calcHand(dealerHand);
+      document.getElementById('dealerCardsRow').innerHTML = dealerHand.length === 0 ? '<div style="color: rgba(255,255,255,0.3); font-size: 12px; line-height: 100px;">等待發牌</div>' : dealerHand.map(renderCard).join('');
+      document.getElementById('dealerScoreBadge').innerText = dealerHand.some(c => c.isHidden) ? \`\${dScore.total} + ?\` : dScore.isBust ? 'BUST (爆牌)' : \`\${dScore.total} 點\`;
+
+      const pScore = calcHand(playerHand);
+      const pRow = document.getElementById('playerCardsRow');
+      const spot = document.getElementById('bjBetSpot');
+      if (playerHand.length === 0) {
+        pRow.style.display = 'none';
+        spot.style.display = 'flex';
+        document.getElementById('playerScoreBadge').style.display = 'none';
+        document.getElementById('bjBetAmountText').innerText = '$' + bjBet.toLocaleString();
+      } else {
+        pRow.style.display = 'flex';
+        spot.style.display = 'none';
+        pRow.innerHTML = playerHand.map(renderCard).join('');
+        const pBadge = document.getElementById('playerScoreBadge');
+        pBadge.style.display = 'inline-block';
+        pBadge.innerText = pScore.isBust ? 'BUST (爆牌)' : pScore.isBJ ? '🌟 BLACKJACK (21分)' : \`\${pScore.total} 點\`;
+      }
+
+      document.getElementById('bjBetControls').style.display = bjPhase === 'betting' ? 'flex' : 'none';
+      document.getElementById('bjPlayControls').style.display = bjPhase === 'player' ? 'flex' : 'none';
+      document.getElementById('bjSettledControls').style.display = bjPhase === 'settled' ? 'flex' : 'none';
+      document.getElementById('bjDoubleBtn').disabled = playerHand.length !== 2 || balance < bjBet;
+
+      updateShoeUI();
+    }
+
+    function placeBjBet() {
+      if (bjPhase !== 'betting') return;
+      if (balance < selectedChip) { alert('籌碼餘額不足！'); return; }
+      playBeep(1200);
+      balance -= selectedChip;
+      bjBet += selectedChip;
+      updateGlobalBalance();
+      updateBjUI();
+    }
+
+    function clearBjBet() {
+      if (bjPhase !== 'betting' || bjBet === 0) return;
+      playBeep(400);
+      balance += bjBet;
+      bjBet = 0;
+      updateGlobalBalance();
+      updateBjUI();
+    }
+
+    function rebetBj() {
+      if (bjPhase !== 'betting') return;
+      if (balance + bjBet < bjLastBet) { alert('籌碼不足！'); return; }
+      playBeep(900);
+      balance = balance + bjBet - bjLastBet;
+      bjBet = bjLastBet;
+      updateGlobalBalance();
+      updateBjUI();
+    }
+
+    function drawOneCard(isHidden=false) {
+      if (bjShoe.length === 0) bjShoe = create6DeckShoe();
+      const card = bjShoe.shift();
+      return { ...card, isHidden };
+    }
+
+    function dealBlackjack() {
+      if (bjPhase !== 'betting' || bjBet === 0) { alert('請先放置籌碼！'); return; }
+      bjLastBet = bjBet;
+      isBjDouble = false;
+      if (bjShoe.length < 10) bjShoe = create6DeckShoe();
+
+      playBeep(700, 'triangle', 0.08);
+      bjPhase = 'dealing';
+      playerHand = [drawOneCard(false), drawOneCard(false)];
+      dealerHand = [drawOneCard(false), drawOneCard(true)];
+
+      const pScore = calcHand(playerHand);
+      if (pScore.isBJ) {
+        dealerHand[1].isHidden = false;
+        bjPhase = 'settled';
+        settleBlackjack();
+      } else {
+        bjPhase = 'player';
+        document.getElementById('bjCenterMsg').innerText = '請選擇要牌 (Hit)、停牌 (Stand) 或雙倍 (Double)';
+      }
+      updateBjUI();
+    }
+
+    function bjHit() {
+      if (bjPhase !== 'player') return;
+      playBeep(850, 'triangle', 0.06);
+      playerHand.push(drawOneCard(false));
+      const p = calcHand(playerHand);
+      if (p.isBust) {
+        dealerHand[1].isHidden = false;
+        bjPhase = 'settled';
+        settleBlackjack();
+      } else if (p.total === 21) {
+        bjStand();
+      } else {
+        updateBjUI();
+      }
+    }
+
+    function bjDoubleDown() {
+      if (bjPhase !== 'player' || playerHand.length !== 2) return;
+      if (balance < bjBet) { alert('籌碼不足以加倍！'); return; }
+      playBeep(1100);
+      balance -= bjBet;
+      bjBet *= 2;
+      isBjDouble = true;
+      updateGlobalBalance();
+
+      playerHand.push(drawOneCard(false));
+      bjStand();
+    }
+
+    function bjStand() {
+      if (bjPhase !== 'player') return;
+      bjPhase = 'dealer';
+      dealerHand[1].isHidden = false;
+      document.getElementById('bjCenterMsg').innerText = '莊家補牌中...';
+      updateBjUI();
+
+      const runDealer = () => {
+        let d = calcHand(dealerHand);
+        if (d.total < 17) {
+          setTimeout(() => {
+            playBeep(800, 'triangle', 0.06);
+            dealerHand.push(drawOneCard(false));
+            updateBjUI();
+            runDealer();
+          }, 600);
+        } else {
+          setTimeout(() => {
+            bjPhase = 'settled';
+            settleBlackjack();
+          }, 300);
+        }
+      };
+      setTimeout(runDealer, 500);
+    }
+
+    function settleBlackjack() {
+      dealerHand.forEach(c => c.isHidden = false);
+      const p = calcHand(playerHand);
+      const d = calcHand(dealerHand);
+      let outcome = '';
+      let netProfit = 0;
+      let payout = 0;
+
+      if (p.isBust) {
+        outcome = '💥 玩家爆牌！';
+        netProfit = -bjBet;
+      } else if (p.isBJ && d.isBJ) {
+        outcome = '🤝 雙方皆為 Blackjack 平手！';
+        payout = bjBet;
+      } else if (p.isBJ) {
+        outcome = '🌟 天生 21 點！BLACKJACK (3:2)！';
+        const profit = Math.floor(bjBet * 1.5);
+        payout = bjBet + profit;
+        netProfit = profit;
+      } else if (d.isBJ) {
+        outcome = '👑 莊家 Blackjack！';
+        netProfit = -bjBet;
+      } else if (d.isBust) {
+        outcome = '🎉 莊家爆牌！玩家獲勝！';
+        payout = bjBet * 2;
+        netProfit = bjBet;
+      } else if (p.total > d.total) {
+        outcome = '🎉 玩家點數領先獲勝！';
+        payout = bjBet * 2;
+        netProfit = bjBet;
+      } else if (p.total < d.total) {
+        outcome = '莊家點數較大獲勝';
+        netProfit = -bjBet;
+      } else {
+        outcome = '🤝 雙方點數相同平手 (Push)！';
+        payout = bjBet;
+      }
+
+      balance += payout;
+      updateGlobalBalance();
+      updateBjUI();
+
+      const sumEl = document.getElementById('bjRoundSummary');
+      sumEl.innerHTML = \`\${outcome} \${netProfit > 0 ? '<span style="color:#34d399;">+$'+netProfit.toLocaleString()+'</span>' : netProfit === 0 ? '<span style="color:#fbbf24;">退還注金</span>' : '<span style="color:#f87171;">-$'+bjBet.toLocaleString()+'</span>'}\`;
+
+      if (netProfit > 0) playBeep(950, 'sine', 0.3);
+      else if (netProfit < 0) playBeep(200, 'sawtooth', 0.2);
+
+      if (bjShoe.length < 75) {
+        setTimeout(() => {
+          document.getElementById('bjCenterMsg').innerText = '🔀 牌靴低於 75 張，重新洗牌中 (312 Cards)...';
+          setTimeout(() => {
+            bjShoe = create6DeckShoe();
+            updateShoeUI();
+            document.getElementById('bjCenterMsg').innerText = '牌靴洗牌完成！請點擊「再玩一局」';
+          }, 1200);
+        }, 800);
+      }
+    }
+
+    function bjPlayAgain() {
+      playerHand = [];
+      dealerHand = [];
+      bjBet = 0;
+      bjPhase = 'betting';
+      document.getElementById('bjCenterMsg').innerText = '請選擇籌碼面額，並點擊下方「下注圈」放置注金';
+      updateBjUI();
+    }
+
+    function bjRebetAndDeal() {
+      if (balance < bjLastBet) { alert('籌碼不足！'); return; }
+      bjPlayAgain();
+      balance -= bjLastBet;
+      bjBet = bjLastBet;
+      updateGlobalBalance();
+      updateBjUI();
+      setTimeout(dealBlackjack, 100);
+    }
+
+    window.onload = () => {
+      updateGlobalBalance();
+      initRoulette();
+      initBlackjack();
+    };
+  </script>
+</body>
+</html>
