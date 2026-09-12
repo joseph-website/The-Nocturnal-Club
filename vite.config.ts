@@ -5,7 +5,7 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
-    base: './', // 記得字尾要加逗號
+    base: '/The-Nocturnal-Club/',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
