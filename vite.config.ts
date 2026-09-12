@@ -5,7 +5,7 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
-    base: './', // 關鍵：使用相對路徑，讓瀏覽器自動搜尋當前目錄下的檔案
+    base: '/The-Nocturnal-Club/', // 👈 只修復了這一行的路徑設定
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
