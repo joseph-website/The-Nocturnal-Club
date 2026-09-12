@@ -5,7 +5,7 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
-    base: '/The-Nocturnal-Club/',
+    base: '/The Nocturnal Club/',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
