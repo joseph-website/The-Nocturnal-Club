@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: ["main"] # 若主分支為 master 請改為 "master"
+    branches: ["main"] # 如果你的預設分支是 master，請改為 "master"
 
 permissions:
   contents: read
@@ -19,12 +19,6 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    
-    # 關鍵：告訴機器人進到內層資料夾執行打包
-    defaults:
-      run:
-        working-directory: ./The-Nocturnal-Club
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -43,7 +37,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './The-Nocturnal-Club/dist' # 指向內層產出的 dist 資料夾
+          path: './dist'
 
       - name: Deploy to GitHub Pages
         id: deployment
